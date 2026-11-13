@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>CATCH ME</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+        integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+          integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+</head>
+<body>
+<main class="wrap">
+  <header><div class="logo">V</div><div><b>VIPS</b><small>Tamil Nadu · Simulated movement</small></div>
+    <div class="live"><i></i> LIVE DEMO</div>
+  </header>
+
+  <section class="intro">
+    <p>REAL-TIME MAP PREVIEW</p>
+    <h1>Location changes every 05 seconds</h1>
+    <span>The demo marker automatically moves between the five saved locations.</span>
+  </section>
+
+  <section class="layout">
+    <div class="map-card">
+      <div class="heading"><b>Tamil Nadu live map</b><span>LEAFLET · OPENSTREETMAP</span></div>
+      <div id="map"></div>
+      <p class="hint">The moving marker is simulated. It is not your device's real GPS position.</p>
+    </div>
+
+    <aside class="side">
+      <div class="current-card">
+        <small>SIMULATED CURRENT LOCATION</small>
+        <h2 id="currentName">Starting…</h2>
+        <p id="currentArea">Loading location</p>
+        <div class="count-row"><span>Next change in</span><b><span id="countdown">10</span>s</b></div>
+        <div class="progress"><div id="progressBar"></div></div>
+        <div class="time">Last update: <span id="lastUpdate">--</span></div>
+      </div>
+      <div class="list-card">
+        <div class="heading"><b>Location sequence</b><span>5 PLACES</span></div>
+        <div id="places">
+          {% for p in locations %}
+          <div class="place" id="place-{{ p.id }}"><span class="dot"></span><span><b>{{ p.name }}</b><small>{{ p.area }}</small></span></div>
+          {% endfor %}
+        </div>
+      </div>
+      <button class="restart" onclick="restartDemo()">Restart sequence</button>
+    </aside>
+  </section>
+
+  <section class="log-card">
+    <div class="heading"><b>Location change log</b><span>AUTOMATIC UPDATES</span></div>
+    <div id="log"><p class="empty">Waiting for first location update…</p></div>
+  </section>SAMPLE FOOTER</footer>
+</main>
+
+<script>
+const locations = {{ locations|tojson }};
+const byId = Object.fromEntries(locations.map(p => [p.id, p]));
+let index = 0;
+let secondsLeft = 10;
+let timer = null;
+let marker = null;
+let accuracyCircle = null;
+
+const map = L.map('map').setView([11.6, 78.2], 7);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  maxZoom: 19,
+  attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+}).addTo(map);
+
+// Fixed city pins remain visible for reference.
+locations.forEach(p => {
+  L.circleMarker([p.lat, p.lon], {
+    radius: 5, color: '#ffffff', weight: 2, fillColor: '#63758a', fillOpacity: 1
+  }).addTo(map).bindTooltip(p.name);
+});
+
+function addLog(p) {
+  const log = document.getElementById('log');
+  const empty = log.querySelector('.empty');
+  if (empty) empty.remove();
+  const item = document.createElement('div');
+  item.className = 'log-item';
+  const now = new Date().toLocaleTimeString();
+  item.innerHTML = `<b>${p.name}</b><span>${now}</span>`;
+  log.prepend(item);
+  while (log.children.length > 8) log.lastElementChild.remove();
+}
+
+function showLocation() {
+  const p = locations[index];
+  document.getElementById('currentName').textContent = p.name;
+  document.getElementById('currentArea').textContent = p.area;
+  document.getElementById('lastUpdate').textContent = new Date().toLocaleTimeString();
+  document.querySelectorAll('.place').forEach(el => el.classList.remove('active'));
+  document.getElementById('place-' + p.id).classList.add('active');
+
+  if (!marker) {
+    marker = L.marker([p.lat, p.lon]).addTo(map);
+  } else {
+    marker.setLatLng([p.lat, p.lon]);
+  }
+  marker.bindPopup(`<b>Simulated current location</b><br>${p.name}`).openPopup();
+  map.flyTo([p.lat, p.lon], 9, {duration: 1.2});
+  addLog(p);
+}
+
+function tick() {
+  secondsLeft -= 1;
+  document.getElementById('countdown').textContent = secondsLeft;
+  document.getElementById('progressBar').style.width = ((5 - secondsLeft) * 20) + '%';
+  if (secondsLeft <= 0) {
+    index = (index + 1) % locations.length;
+    secondsLeft = 5;
+    showLocation();
+  }
+}
+function restartDemo() {
+  if (timer) clearInterval(timer);
+  index = 0;
+  secondsLeft = 5;
+  document.getElementById('countdown').textContent = '5';
+  document.getElementById('progressBar').style.width = '0%';
+  showLocation();
+  timer = setInterval(tick, 1000);
+}
+showLocation();
+timer = setInterval(tick, 1000);
+</script>
+</body>
+</html>
